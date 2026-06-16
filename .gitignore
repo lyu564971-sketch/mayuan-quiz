@@ -1,0 +1,60 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+
+# 环境
+.env
+.venv/
+venv/
+env/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# 系统文件
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# 日志和临时文件
+_log.txt
+_err.txt
+_out.txt
+_pip_log.txt
+
+# 开发工具 / 非部署文件
+cpolar_bin/
+_prep.py
+_rewrite.py
+_rewrite2.py
+_test_import.py
+_new_block.js
+_questions_data.js
+app.js
+build_site.py
+checkpoint.py
+qa_check.py
+questions_compact.json
+questions_extracted.json
+checkpoint.json
+questions_with_llm.json
+docs/
+llm_api_selection_report.md
+llm_integration_architecture.md
+index.html.bak
+
+# Node
+node_modules/
+
+# Vercel (暂不用)
+vercel.json
+api/

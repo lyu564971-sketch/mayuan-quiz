@@ -1,0 +1,1 @@
+﻿Set-Location -LiteralPath 'D:\\互联网＋\\mayuan-quiz'\r\npython server.py\r\n

@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: mayuan-quiz
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn server:app
+    envVars:
+      - key: ZHIPU_API_KEY
+        sync: false
+      - key: ACTIVE_PROVIDER
+        value: zhipu
+      - key: TEMPERATURE
+        value: "0.3"
+      - key: MAX_TOKENS
+        value: "2000"
+      - key: PYTHON_VERSION
+        value: "3.11.6"
