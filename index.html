@@ -455,9 +455,9 @@ document.addEventListener('click', function(e){
   if(!hd) return;
   var box = hd.closest('.ai-box');
   if(!box) return;
-  if(box.hasAttribute('data-streaming')) return;
+  if(box.hasAttribute('data-streaming')){e.stopPropagation();e.preventDefault();return;}
   box.classList.toggle('open');
-});
+}, true);
 
 // 创建 AI box HTML（默认收起）
 function _aiBoxHTML(inner){
@@ -470,88 +470,52 @@ async function askAI(btn, qid){
   var q=Q.find(function(x){return x.id===qid});
   if(!q)return;
   var wrap=btn.closest('.ai-wrap');
-
-  // 缓存命中：渲染后保持收起
-  if(window._aiCache[qid]){
-    btn.remove();
-    wrap.innerHTML=_aiBoxHTML(window._aiCache[qid]);
-    return;
-  }
-
+  if(window._aiCache[qid]){btn.remove();wrap.innerHTML=_renderCacheBox(qid);return;}
   btn.disabled=true;
-  btn.textContent='\u23f3 解析中...';
-
-  // 创建 AI box，流式期间保持展开
-  wrap.innerHTML=_aiBoxHTML();
+  btn.textContent='\u23f3 \u89e3\u6790\u4e2d...';
+  wrap.innerHTML=_renderCacheBox(qid);
   var box=wrap.querySelector('.ai-box');
+  if(!box)return;
   box.classList.add('open');
   box.setAttribute('data-streaming','1');
   var inner=box.querySelector('.ai-box-inner');
   var fullText='';
-  var doneReceived=false;
-
-  function _finishBox(html){
-    doneReceived=true;
-    inner.innerHTML=html;
+  var settled=false;
+  function settleBox(html){
+    if(settled)return;
+    settled=true;
+    box.removeAttribute('data-streaming');
+    if(inner)inner.innerHTML=html;
     window._aiCache[qid]=html;
-    // 移除 streaming 标记，但保持展开（让用户看到结果）
-    box.removeAttribute('data-streaming');
-    // 不再自动收起！让用户手动关闭
   }
-
-  function _showError(msg){
-    doneReceived=true;
-    box.removeAttribute('data-streaming');
-    box.classList.add('open');
-    inner.innerHTML='<div style="padding:8px 0;color:var(--red);font-size:.82rem">\u26a0 '+msg+'</div><button class="ai-btn" onclick="askAI(this,'+JSON.stringify(qid)+')" style="margin-top:8px">\ud83e\udde0 重试</button>';
-  }
-
   try{
-    var resp=await fetch('/api/explain',{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({id:q.id,type:q.type,chapter:q.chapter,stem:q.stem||q.question,options:q.options,answer:q.answer})
-    });
+    var resp=await fetch('/api/explain',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:q.id,type:q.type,chapter:q.chapter,stem:q.stem||q.question,options:q.options,answer:q.answer})});
     if(!resp.ok)throw new Error('HTTP '+resp.status);
-
-    var reader=resp.body.getReader();
-    var decoder=new TextDecoder();
-    var buf='';
-
+    var reader=resp.body.getReader();var decoder=new TextDecoder();var buf='';
     while(true){
       var result=await reader.read();
       if(result.done)break;
       buf+=decoder.decode(result.value,{stream:true});
-      var lines=buf.split('\n');
-      buf=lines.pop();
-      for(var li=0;li<lines.length;li++){
-        var line=lines[li];
+      var ln=buf.split('\n');
+      buf=ln.pop();
+      for(var li=0;li<ln.length;li++){
+        var line=ln[li];
         if(!line.startsWith('data: '))continue;
-        var raw=line.slice(6).trim();
-        if(!raw)continue;
-        try{
-          var d=JSON.parse(raw);
-          if(d.type==='chunk'){
-            fullText+=d.text;
-            inner.innerHTML=_parseAI(fullText);
-          }else if(d.type==='done'){
-            _finishBox(_renderFinal(d));
-          }else if(d.type==='error'){
-            throw new Error(d.text);
-          }
+        var raw2=line.slice(6).trim();
+        if(!raw2)continue;
+        try{var d=JSON.parse(raw2);
+          if(d.type==='chunk'){fullText+=d.text;if(inner&&!settled)inner.innerHTML=_parseAI(fullText);}
+          else if(d.type==='done'){settleBox(_renderFinal(d));}
+          else if(d.type==='error'){throw new Error(d.text);}
         }catch(e){if(e.message)throw e}
       }
     }
-
-    // 流自然结束但没收到 done 事件
-    if(!doneReceived && fullText.length>10){
-      var fallback={solution:fullText,location:'',options_analysis:'',warning:''};
-      _finishBox(_renderFinal(fallback));
-    }
+    if(!settled&&fullText.length>10){var fb={solution:fullText,location:'',options_analysis:'',warning:''};settleBox(_renderFinal(fb));}
   }catch(err){
-    _showError(err.message);
+    settleBox('<div style="padding:8px 0;color:var(--red);font-size:.82rem">\u26a0 '+(err.message||'\u89e3\u6790\u5931\u8d25')+'</div><button class="ai-btn" onclick="askAI(this,'+JSON.stringify(qid)+')" style="margin-top:8px">\ud83e\udde0 \u91cd\u8bd5</button>');
   }
 }
+
 // 流式预览：简单文本清洗，不做复杂JSON解析
 function _parseAI(raw){
   var t=raw;
