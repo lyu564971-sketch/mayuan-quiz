@@ -308,7 +308,11 @@ function renderHome(){
     <div class="search-bar">
       <input class="search-input" placeholder="🔍 搜索题目关键词..." oninput="searchQuery=this.value;renderSearchResults()">
     </div>
-    <div id="search-results"></div>function startQuiz(){
+    <div id="search-results"></div>`;
+  document.getElementById('app').innerHTML=h;
+}
+
+function startQuiz(){
   let qs=[...Q];
   if(mode==='ch'&&chapter) qs=qs.filter(q=>(q.chapter||'综合')===chapter);
   if(mode==='wrong'){
