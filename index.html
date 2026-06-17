@@ -455,15 +455,19 @@ document.addEventListener('click', function(e){
   if(!hd) return;
   var box = hd.closest('.ai-box');
   if(!box) return;
-  if(box.hasAttribute('data-streaming')){e.stopPropagation();e.preventDefault();return;}
+  if(box.hasAttribute('data-streaming')){if(box._abortCtrl)box._abortCtrl.abort();return;}
   box.classList.toggle('open');
-}, true);
+});
 
 // 创建 AI box HTML（默认收起）
 function _aiBoxHTML(inner){
   return '<div class="ai-box"><div class="ai-box-hd"><span class="ai-box-title">🧠 AI 解析</span><span class="ai-box-arrow">▶</span></div><div class="ai-box-bd"><div class="ai-box-inner">' +
     (inner||'<div class="ai-p" style="color:var(--sub)">正在生成解析...</div>') +
     '</div></div></div>';
+}
+
+function _renderCacheBox(qid){
+  return '<div class="ai-box"><div class="ai-box-hd"><span class="ai-box-title">\ud83e\udde0 AI \u89e3\u6790</span><span class="ai-box-arrow">\u25b6</span></div><div class="ai-box-bd"><div class="ai-box-inner">' + (window._aiCache[qid]||'') + '</div></div></div>';
 }
 
 async function askAI(btn, qid){
@@ -480,16 +484,19 @@ async function askAI(btn, qid){
   box.setAttribute('data-streaming','1');
   var inner=box.querySelector('.ai-box-inner');
   var fullText='';
-  var settled=false;
-  function settleBox(html){
-    if(settled)return;
-    settled=true;
+  var done=false;
+  var ctrl=new AbortController();
+  box._abortCtrl=ctrl;
+  function finish(html){
+    if(done)return;
+    done=true;
     box.removeAttribute('data-streaming');
+    delete box._abortCtrl;
     if(inner)inner.innerHTML=html;
     window._aiCache[qid]=html;
   }
   try{
-    var resp=await fetch('/api/explain',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:q.id,type:q.type,chapter:q.chapter,stem:q.stem||q.question,options:q.options,answer:q.answer})});
+    var resp=await fetch('/api/explain',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:q.id,type:q.type,chapter:q.chapter,stem:q.stem||q.question,options:q.options,answer:q.answer}),signal:ctrl.signal});
     if(!resp.ok)throw new Error('HTTP '+resp.status);
     var reader=resp.body.getReader();var decoder=new TextDecoder();var buf='';
     while(true){
@@ -501,18 +508,19 @@ async function askAI(btn, qid){
       for(var li=0;li<ln.length;li++){
         var line=ln[li];
         if(!line.startsWith('data: '))continue;
-        var raw2=line.slice(6).trim();
-        if(!raw2)continue;
-        try{var d=JSON.parse(raw2);
-          if(d.type==='chunk'){fullText+=d.text;if(inner&&!settled)inner.innerHTML=_parseAI(fullText);}
-          else if(d.type==='done'){settleBox(_renderFinal(d));}
+        var r2=line.slice(6).trim();
+        if(!r2)continue;
+        try{var d=JSON.parse(r2);
+          if(d.type==='chunk'){fullText+=d.text;if(inner&&!done)inner.innerHTML=_parseAI(fullText);}
+          else if(d.type==='done'){finish(_renderFinal(d));}
           else if(d.type==='error'){throw new Error(d.text);}
         }catch(e){if(e.message)throw e}
       }
     }
-    if(!settled&&fullText.length>10){var fb={solution:fullText,location:'',options_analysis:'',warning:''};settleBox(_renderFinal(fb));}
+    if(!done&&fullText.length>10){var fb={solution:fullText,location:'',options_analysis:'',warning:''};finish(_renderFinal(fb));}
   }catch(err){
-    settleBox('<div style="padding:8px 0;color:var(--red);font-size:.82rem">\u26a0 '+(err.message||'\u89e3\u6790\u5931\u8d25')+'</div><button class="ai-btn" onclick="askAI(this,'+JSON.stringify(qid)+')" style="margin-top:8px">\ud83e\udde0 \u91cd\u8bd5</button>');
+    if(err.name==='AbortError'){finish(fullText.length>10?_parseAI(fullText):'<div class="ai-p" style="color:var(--sub)">\u89e3\u6790\u5df2\u53d6\u6d88</div>');return;}
+    finish('<div style="padding:8px 0;color:var(--red);font-size:.82rem">\u26a0 '+(err.message||'\u89e3\u6790\u5931\u8d25')+'</div><button class="ai-btn" onclick="askAI(this,'+JSON.stringify(qid)+')" style="margin-top:8px">\ud83e\udde0 \u91cd\u8bd5</button>');
   }
 }
 
