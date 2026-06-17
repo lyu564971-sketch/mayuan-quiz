@@ -12,6 +12,11 @@
   --red:#ff3b30;--red-soft:#fff0ef;--border:#e8e8ed;--radius:14px;
   --font:-apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue","PingFang SC","Microsoft YaHei",sans-serif;
 }
+[data-theme="dark"]{
+  --bg:#1c1c1e;--card:#2c2c2e;--text:#f5f5f7;--sub:#a1a1a6;--muted:#636366;
+  --accent:#5e5ce6;--accent-soft:#2c2c4a;--green:#30d158;--green-soft:#1a3a1e;
+  --red:#ff453a;--red-soft:#3a1a1a;--border:#38383a;
+}
 html{font-size:15px;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
 body{font-family:var(--font);background:var(--bg);color:var(--text);line-height:1.6;min-height:100dvh}
 ::selection{background:var(--accent);color:#fff}
@@ -300,12 +305,18 @@ function renderHome(){
       <div class="stat"><div class="stat-num">${Q.filter(q=>q.type==='judge').length}</div><div class="stat-label">判断</div></div>
     </div>
     <div class="modes">
-      <div class="mode ${mode==='seq'?'active':''}" onclick="mode='seq';chapter='';render()"><div class="mode-icon">📖</div><div class="mode-name">顺序练习</div><div class="mode-desc">按章节逐题作答</div></div>
-      <div class="mode ${mode==='rand'?'active':''}" onclick="mode='rand';chapter='';render()"><div class="mode-icon">🎲</div><div class="mode-name">随机练习</div><div class="mode-desc">打乱顺序随机出题</div></div>
+      <div class="mode ${mode==='seq'?'active':''}" onclick="mode='seq';chapter='';startQuiz()"><div class="mode-icon">📖</div><div class="mode-name">顺序练习</div><div class="mode-desc">按章节逐题作答</div></div>
+      <div class="mode ${mode==='rand'?'active':''}" onclick="mode='rand';chapter='';startQuiz()"><div class="mode-icon">🎲</div><div class="mode-name">随机练习</div><div class="mode-desc">打乱顺序随机出题</div></div>
       <div class="mode ${mode==='ch'?'active':''}" onclick="mode='ch';render()"><div class="mode-icon">📑</div><div class="mode-name">章节练习</div><div class="mode-desc">选择特定章节</div></div>
-      <div class="mode ${mode==='wrong'?'active':''}" onclick="mode='wrong';render()"><div class="mode-icon">❌</div><div class="mode-name">错题重练</div><div class="mode-desc">重温错题</div></div>
+      <div class="mode ${mode==='wrong'?'active':''}" onclick="mode='wrong';startQuiz()"><div class="mode-icon">❌</div><div class="mode-name">错题重练</div><div class="mode-desc">重温错题</div></div>
     </div>
-    <div class="search-bar">
+    <!-- 章节列表 -->
+    <div class="chapters" id="chapter-list">
+      <div class="chapters-title">选择章节</div>
+      <div class="ch-list">${chapters.map((c,i)=>`<div class="ch ${chapter===c?'active':''}" onclick="chapter=chapters[${i}];startQuiz()"><span class="ch-name">${esc(c)}</span><span class="ch-count">${Q.filter(q=>(q.chapter||'综合')===c).length}</span></div>`).join('')}</div>
+    </div>
+    <button class="btn" onclick="startQuiz()" style="margin-top:16px">开始答题</button>
+    <div class="search-bar" style="margin-top:16px">
       <input class="search-input" placeholder="🔍 搜索题目关键词..." oninput="searchQuery=this.value;renderSearchResults()">
     </div>
     <div id="search-results"></div>`;
