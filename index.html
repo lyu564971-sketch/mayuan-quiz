@@ -156,6 +156,82 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);line-height:
   .ai-section{padding:16px}
   .q-dot{width:24px;height:24px;font-size:.65rem}
 }
+
+/* === 学习统计卡片 === */
+.stats-card{background:var(--card);border-radius:var(--radius);padding:20px;margin-bottom:16px;box-shadow:var(--shadow)}
+.stats-card-title{font-size:.85rem;font-weight:700;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center}
+.stats-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+.stat-item{text-align:center}
+.stat-item-num{font-size:1.4rem;font-weight:700;font-variant-numeric:tabular-nums}
+.stat-item-label{font-size:.7rem;color:var(--muted);margin-top:2px}
+
+/* === 进度条（首页） === */
+.progress-ring{width:60px;height:60px;margin:0 auto 8px}
+.progress-ring-bg{fill:none;stroke:var(--border);stroke-width:6}
+.progress-ring-fill{fill:none;stroke:var(--accent);stroke-width:6;stroke-linecap:round;transition:stroke-dashoffset .5s ease}
+
+/* === 计时器 === */
+.timer{font-size:.75rem;color:var(--muted);font-variant-numeric:tabular-nums;display:flex;align-items:center;gap:4px}
+.timer-icon{font-size:.7rem}
+
+/* === 收藏按钮 === */
+.bookmark-btn{background:none;border:none;font-size:1.1rem;cursor:pointer;padding:4px 8px;border-radius:8px;transition:all .15s;opacity:.5}
+.bookmark-btn:hover{opacity:1;background:var(--accent-soft)}
+.bookmark-btn.active{opacity:1;transform:scale(1.1)}
+
+/* === 深色模式切换 === */
+.theme-toggle{background:var(--card);border:1px solid var(--border);border-radius:20px;padding:6px 12px;cursor:pointer;font-size:.8rem;display:flex;align-items:center;gap:6px;transition:all .15s}
+.theme-toggle:hover{border-color:var(--accent)}
+
+/* === 搜索栏 === */
+.search-bar{display:flex;gap:8px;margin-bottom:16px}
+.search-input{flex:1;padding:10px 16px;border:1.5px solid var(--border);border-radius:10px;font-size:.85rem;background:var(--card);color:var(--text);outline:none;transition:border-color .15s}
+.search-input:focus{border-color:var(--accent)}
+.search-input::placeholder{color:var(--muted)}
+
+/* === 统计图表（简易条形图） === */
+.chart-bar{height:8px;background:var(--border);border-radius:4px;margin-bottom:8px;overflow:hidden}
+.chart-fill{height:100%;border-radius:4px;transition:width .5s ease}
+.chart-label{display:flex;justify-content:space-between;font-size:.7rem;color:var(--sub);margin-bottom:4px}
+
+/* === 章节统计 === */
+.chapter-stat{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border-bottom:1px solid var(--border)}
+.chapter-stat:last-child{border-bottom:none}
+.chapter-stat-name{font-size:.82rem;font-weight:500;flex:1}
+.chapter-stat-bar{width:80px;height:6px;background:var(--border);border-radius:3px;margin:0 10px;overflow:hidden}
+.chapter-stat-fill{height:100%;background:var(--accent);border-radius:3px}
+.chapter-stat-pct{font-size:.7rem;color:var(--muted);width:40px;text-align:right}
+
+/* === 按钮变体 === */
+.btn-ghost{background:var(--card);color:var(--text);border:1.5px solid var(--border);box-shadow:none}
+.btn-ghost:hover{border-color:var(--accent);color:var(--accent)}
+.btn-sm{padding:8px 16px;font-size:.8rem;border-radius:8px}
+
+/* === 工具栏 === */
+.toolbar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+
+/* === 收藏/导出/分享弹窗 === */
+.modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.5);z-index:100;display:flex;align-items:center;justify-content:center;padding:20px}
+.modal{background:var(--card);border-radius:16px;padding:24px;max-width:400px;width:100%;max-height:80vh;overflow-y:auto;box-shadow:var(--shadow-lg)}
+.modal-title{font-size:1rem;font-weight:700;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center}
+.modal-close{background:none;border:none;font-size:1.2rem;cursor:pointer;color:var(--sub);padding:4px}
+
+/* === 分享卡片 === */
+.share-card{background:linear-gradient(135deg,var(--accent),#7c3aed);color:#fff;border-radius:16px;padding:24px;text-align:center;margin-bottom:16px}
+.share-title{font-size:1.2rem;font-weight:800;margin-bottom:8px}
+.share-stats{display:flex;justify-content:center;gap:20px;margin-bottom:12px}
+.share-stat{text-align:center}
+.share-stat-num{font-size:1.8rem;font-weight:700}
+.share-stat-label{font-size:.7rem;opacity:.8}
+
+/* === 移动端适配 === */
+@media(max-width:480px){
+  .stats-grid{grid-template-columns:repeat(2,1fr)}
+  .toolbar{gap:6px}
+  .btn-sm{padding:6px 12px;font-size:.75rem}
+  .search-bar{flex-direction:column}
+  .modal{padding:20px;margin:10px}
+}
 </style>
 </head>
 <body>
@@ -181,38 +257,58 @@ function render(){
 
 // === 首页 ===
 function renderHome(){
-  const s=Q.filter(q=>q.type==='single').length;
-  const m=Q.filter(q=>q.type==='multiple').length;
-  const j=Q.filter(q=>q.type==='judge').length;
+  setTheme(getTheme());
+  var s=getStats();
+  var avgTime=getAvgTime();
+  var pct=s.done>0?Math.round(s.correct/s.done*100):0;
+  var streak=parseInt(localStorage.getItem('mq_streak')||'0');
+  var lastDay=localStorage.getItem('mq_lastDay')||'';
+  var today=new Date().toISOString().slice(0,10);
+  if(lastDay!==today){var yesterday=new Date(Date.now()-86400000).toISOString().slice(0,10);if(lastDay===yesterday)streak++;else streak=1;localStorage.setItem('mq_streak',streak);localStorage.setItem('mq_lastDay',today)}
+
   let h=`
   <div class="home">
-    <div class="home-title">马原答题助手</div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+      <div class="home-title">马原答题助手</div>
+      <button class="theme-toggle" onclick="toggleTheme()">${getTheme()==='dark'?'☀️':'🌙'} ${getTheme()==='dark'?'浅色':'深色'}</button>
+    </div>
     <div class="home-sub">马克思主义基本原理 · 全题型练习</div>
+
+    <!-- 学习统计卡片 -->
+    <div class="stats-card">
+      <div class="stats-card-title"><span>📊 学习概览</span><span style="font-size:.7rem;color:var(--muted)">连续 ${streak} 天</span></div>
+      <div class="stats-grid">
+        <div class="stat-item"><div class="stat-item-num" style="color:var(--accent)">${pct}%</div><div class="stat-item-label">正确率</div></div>
+        <div class="stat-item"><div class="stat-item-num">${s.done}/${s.total}</div><div class="stat-item-label">已答题</div></div>
+        <div class="stat-item"><div class="stat-item-num" style="color:var(--green)">${s.correct}</div><div class="stat-item-label">答对</div></div>
+        <div class="stat-item"><div class="stat-item-num">${avgTime>0?formatTime(avgTime)+'s':'--'}</div><div class="stat-item-label">平均用时</div></div>
+      </div>
+      ${s.done>0?`<div style="margin-top:12px"><div class="chart-bar"><div class="chart-fill" style="width:${pct}%;background:var(--accent)"></div></div></div>`:''}
+    </div>
+
+    <!-- 工具栏 -->
+    <div class="toolbar">
+      <button class="btn btn-sm btn-ghost" onclick="showChapterStats()">📊 章节统计</button>
+      <button class="btn btn-sm btn-ghost" onclick="showBookmarks()">⭐ 收藏 (${bookmarks.length})</button>
+      <button class="btn btn-sm btn-ghost" onclick="showShareModal()">📤 分享成绩</button>
+      ${wrongs.length>0?`<button class="btn btn-sm btn-ghost" onclick="exportWrongs()">📥 导出错题</button>`:''}
+    </div>
+
     <div class="stats">
-      <div class="stat"><div class="stat-num">${s}</div><div class="stat-label">单选</div></div>
-      <div class="stat"><div class="stat-num">${m}</div><div class="stat-label">多选</div></div>
-      <div class="stat"><div class="stat-num">${j}</div><div class="stat-label">判断</div></div>
+      <div class="stat"><div class="stat-num">${Q.filter(q=>q.type==='single').length}</div><div class="stat-label">单选</div></div>
+      <div class="stat"><div class="stat-num">${Q.filter(q=>q.type==='multiple').length}</div><div class="stat-label">多选</div></div>
+      <div class="stat"><div class="stat-num">${Q.filter(q=>q.type==='judge').length}</div><div class="stat-label">判断</div></div>
     </div>
     <div class="modes">
       <div class="mode ${mode==='seq'?'active':''}" onclick="mode='seq';chapter='';render()"><div class="mode-icon">📖</div><div class="mode-name">顺序练习</div><div class="mode-desc">按章节逐题作答</div></div>
       <div class="mode ${mode==='rand'?'active':''}" onclick="mode='rand';chapter='';render()"><div class="mode-icon">🎲</div><div class="mode-name">随机练习</div><div class="mode-desc">打乱顺序随机出题</div></div>
       <div class="mode ${mode==='ch'?'active':''}" onclick="mode='ch';render()"><div class="mode-icon">📑</div><div class="mode-name">章节练习</div><div class="mode-desc">选择特定章节</div></div>
       <div class="mode ${mode==='wrong'?'active':''}" onclick="mode='wrong';render()"><div class="mode-icon">❌</div><div class="mode-name">错题重练</div><div class="mode-desc">重温错题</div></div>
-    </div>`;
-  if(mode==='ch'){
-    h+=`<div class="chapters"><div class="chapters-title">选择章节</div><div class="ch-list">`;
-    chapters.forEach(c=>{
-      const cnt=Q.filter(q=>(q.chapter||'综合')===c).length;
-      h+=`<div class="ch ${chapter===c?'active':''}" onclick="chapter='${c}';render()"><span class="ch-name">${esc(c)}</span><span class="ch-count">${cnt}</span></div>`;
-    });
-    h+=`</div></div>`;
-  }
-  h+=`<button class="btn" onclick="startQuiz()">开始练习</button></div>`;
-  document.getElementById('app').innerHTML=h;
-}
-
-// === 开始 ===
-function startQuiz(){
+    </div>
+    <div class="search-bar">
+      <input class="search-input" placeholder="🔍 搜索题目关键词..." oninput="searchQuery=this.value;renderSearchResults()">
+    </div>
+    <div id="search-results"></div>function startQuiz(){
   let qs=[...Q];
   if(mode==='ch'&&chapter) qs=qs.filter(q=>(q.chapter||'综合')===chapter);
   if(mode==='wrong'){
@@ -228,9 +324,15 @@ function startQuiz(){
 function renderQuiz(){
   const qs=window._qs, q=qs[idx], n=qs.length;
   const a=answers[q.id], done=a&&a.done;
+  startTimer();
   let h=`
   <div class="quiz">
-    <div class="topbar"><button class="back" onclick="screen='home';render()">← 返回</button><span class="progress-text">${idx+1} / ${n}</span></div>
+    <div class="topbar"><button class="back" onclick="stopTimer();screen='home';render()">← 返回</button>
+      <div style="display:flex;align-items:center;gap:10px">
+        <div class="timer"><span class="timer-icon">⏱</span><span id="timer-display">00:00</span></div>
+        <span class="progress-text">${idx+1} / ${n}</span>
+      </div>
+    </div>
     <div class="progress-bar"><div class="progress-fill" style="width:${(idx+1)/n*100}%"></div></div>
     <div class="q-nav">`;
   qs.forEach((x,i)=>{
@@ -241,7 +343,9 @@ function renderQuiz(){
     h+=`<div class="${cls}" onclick="idx=${i};render()">${i+1}</div>`;
   });
   h+=`</div><div class="q-card">
-    <div class="q-meta"><span class="tag tag-type">${typeLabel(q.type)}</span><span class="tag">${esc(q.chapter||'综合')}</span></div>
+    <div class="q-meta"><span class="tag tag-type">${typeLabel(q.type)}</span><span class="tag">${esc(q.chapter||'综合')}</span>
+      <button class="bookmark-btn ${isBookmarked(q.id)?'active':''}" onclick="event.stopPropagation();toggleBookmark(${q.id})" style="margin-left:auto">${isBookmarked(q.id)?'⭐':'☆'}</button>
+    </div>
     <div class="q-stem">${idx+1}. ${esc(q.stem||q.question)}</div>
     <div class="opts">`;
   const keys=Object.keys(q.options||{}).filter(k=>q.options[k]);
@@ -264,7 +368,6 @@ function renderQuiz(){
     if(ok&&wrongs.includes(q.id)){h+=`<div class="feed-clear" onclick="removeWrong(${q.id});render()">✅ 已掌握，移除错题</div>`}
     h+=`</div>`;
   }
-  // AI \u89e3\u6790 (always visible, default collapsed)
   const cached=window._aiCache&&window._aiCache[q.id];
   if(cached){
     h+=`<div class="ai-wrap"><div class="ai-box"><div class="ai-box-hd"><span class="ai-box-title">\ud83e\udde0 AI \u89e3\u6790</span><span class="ai-box-arrow">\u25b6</span></div><div class="ai-box-bd"><div class="ai-box-inner">${cached}</div></div></div></div>`;
@@ -274,41 +377,48 @@ function renderQuiz(){
   h+=`</div><div class="nav-row"><button class="nav-b" onclick="prevQ()" ${idx===0?'disabled':''}>上一题</button><button class="nav-b" onclick="nextQ()">${idx===n-1?'查看结果':'下一题'}</button></div></div>`;
   document.getElementById('app').innerHTML=h;
 }
-
 function pick(k){
   const q=window._qs[idx], a=answers[q.id]||{sel:[],done:false,ok:false};
   if(a.done) return;
   if(q.type==='multiple'){
     const i=a.sel.indexOf(k);if(i>=0)a.sel.splice(i,1);else a.sel.push(k);a.sel.sort();
   }else{
-    a.sel=[k];a.done=true;a.ok=k===q.answer;if(!a.ok)addWrong(q.id);else removeWrong(q.id);
+    a.sel=[k];a.done=true;a.ok=k===q.answer;
+    a.time=_timerElapsed;
+    stopTimer();
+    if(!a.ok)addWrong(q.id);else removeWrong(q.id);
   }
   answers[q.id]=a; saveAns(); render();
+  if(a.done&&a.ok&&q.type!=='multiple'){setTimeout(function(){nextQ()},800)}
 }
 function confirmMulti(){
   const q=window._qs[idx],a=answers[q.id];if(!a||!a.sel.length)return;
-  a.done=true;a.ok=a.sel.sort().join('')===q.answer.split('').sort().join('');if(!a.ok)addWrong(q.id);else removeWrong(q.id);answers[q.id]=a;saveAns();render();if(a.ok){setTimeout(function(){nextQ()},1000)}
+  a.done=true;a.ok=a.sel.sort().join('')===q.answer.split('').sort().join('');
+  a.time=_timerElapsed;
+  stopTimer();
+  if(!a.ok)addWrong(q.id);else removeWrong(q.id);answers[q.id]=a;saveAns();render();
+  if(a.ok){setTimeout(function(){nextQ()},800)}
 }
 function prevQ(){if(idx>0){idx--;render()}}
 function nextQ(){if(idx<window._qs.length-1){idx++;render()}else{screen='result';render()}}
 
 // === 结果 ===
 function renderResult(){
-  const qs=window._qs;let ok=0,no=0,skip=0;
-  qs.forEach(q=>{const a=answers[q.id];if(!a||!a.done)skip++;else if(a.ok)ok++;else no++});
+  stopTimer();
+  const qs=window._qs;let ok=0,no=0,skip=0;let totalTime=0;
+  qs.forEach(q=>{const a=answers[q.id];if(!a||!a.done)skip++;else if(a.ok){ok++;totalTime+=(a.time||0)}else{no++;totalTime+=(a.time||0)}});
   let h=`<div class="result"><div class="result-score">${ok}</div><div class="result-label">共 ${qs.length} 题</div>
   <div class="result-stats">
     <div class="result-stat"><div class="result-stat-num" style="color:var(--green)">${ok}</div><div class="result-stat-label">正确</div></div>
     <div class="result-stat"><div class="result-stat-num" style="color:var(--red)">${no}</div><div class="result-stat-label">错误</div></div>
     <div class="result-stat"><div class="result-stat-num" style="color:var(--muted)">${skip}</div><div class="result-stat-label">未答</div></div>
   </div>
+  <div style="font-size:.82rem;color:var(--sub);margin-bottom:16px">总用时：${formatTime(totalTime)} · 平均：${qs.length>0?formatTime(Math.round(totalTime/qs.length)):'--'}/题</div>
   <button class="btn" onclick="screen='home';render()" style="margin-bottom:10px">返回首页</button>`;
   if(no) h+=`<button class="btn" onclick="screen='wrongs';render()" style="background:var(--card);color:var(--text);border:1.5px solid var(--border)">查看错题</button>`;
   h+=`</div>`;
   document.getElementById('app').innerHTML=h;
 }
-
-// === 错题 ===
 function renderWrongs(){
   loadWrongs();
   let h=`<div class="wrongs"><div class="wrongs-head"><span class="wrongs-title">❌ 错题回顾</span><span class="wrongs-count">共 ${wrongs.length} 题</span></div>`;
@@ -494,6 +604,156 @@ function _renderFinal(d){
   return out;
 }
 
+function renderSearchResults(){
+  var el=document.getElementById('search-results');
+  if(!el)return;
+  if(!searchQuery||searchQuery.length<2){el.innerHTML='';return}
+  var results=filterQuestions(searchQuery).slice(0,10);
+  if(!results.length){el.innerHTML='<div style="padding:12px;color:var(--muted);font-size:.82rem;text-align:center">未找到相关题目</div>';return}
+  var h='';
+  results.forEach(function(q,i){
+    h+='<div style="padding:10px 12px;border-bottom:1px solid var(--border);cursor:pointer" onclick="screen=\'quiz\';window._qs=Q;idx=Q.indexOf(Q.find(function(x){return x.id==='+q.id+'}));render()">'+
+      '<div style="font-size:.7rem;color:var(--muted);margin-bottom:4px">['+typeLabel(q.type)+'] '+esc(q.chapter||'')+'</div>'+
+      '<div style="font-size:.82rem;line-height:1.5">'+esc((q.stem||q.question).substring(0,100))+'</div>'+
+      '</div>';
+  });
+  el.innerHTML=h;
+}
+// === 新增：深色模式 ===
+function getTheme(){return localStorage.getItem('mq_theme')||'light'}
+function setTheme(t){localStorage.setItem('mq_theme',t);document.documentElement.setAttribute('data-theme',t)}
+function toggleTheme(){setTheme(getTheme()==='dark'?'light':'dark');render()}
+
+// === 新增：收藏功能 ===
+var bookmarks=JSON.parse(localStorage.getItem('mq_bookmarks')||'[]');
+function saveBookmarks(){localStorage.setItem('mq_bookmarks',JSON.stringify(bookmarks))}
+function toggleBookmark(id){
+  var i=bookmarks.indexOf(id);
+  if(i>=0)bookmarks.splice(i,1);else bookmarks.push(id);
+  saveBookmarks();render();
+}
+function isBookmarked(id){return bookmarks.indexOf(id)>=0}
+
+// === 新增：答题计时器 ===
+var _timerStart=0,_timerInterval=null,_timerElapsed=0;
+function startTimer(){_timerStart=Date.now();_timerElapsed=0;if(_timerInterval)clearInterval(_timerInterval);_timerInterval=setInterval(function(){_timerElapsed=Math.floor((Date.now()-_timerStart)/1000);var el=document.getElementById('timer-display');if(el)el.textContent=formatTime(_timerElapsed)},1000)}
+function stopTimer(){if(_timerInterval){clearInterval(_timerInterval);_timerInterval=null}}
+function formatTime(s){var m=Math.floor(s/60);var ss=s%60;return (m<10?'0':'')+m+':'+(ss<10?'0':'')+ss}
+function getAvgTime(){
+  var qs=window._qs||[];var total=0;var count=0;
+  qs.forEach(function(q){var a=answers[q.id];if(a&&a.done&&a.time){total+=a.time;count++}});
+  return count>0?Math.round(total/count):0;
+}
+
+// === 新增：学习统计 ===
+function getStats(){
+  var qs=window._qs||Q;
+  var total=qs.length;var done=0;var correct=0;var wrong=0;
+  qs.forEach(function(q){var a=answers[q.id];if(a&&a.done){done++;if(a.ok)correct++;else wrong++}});
+  return {total:total,done:done,correct:correct,wrong:wrong,pct:done>0?Math.round(correct/done*100):0};
+}
+function getChapterStats(){
+  var chapters={};
+  Q.forEach(function(q){
+    var ch=q.chapter||'综合';
+    if(!chapters[ch])chapters[ch]={total:0,done:0,correct:0};
+    chapters[ch].total++;
+    var a=answers[q.id];
+    if(a&&a.done){chapters[ch].done++;if(a.ok)chapters[ch].correct++}
+  });
+  return chapters;
+}
+
+// === 新增：题目搜索 ===
+var searchQuery='';
+function filterQuestions(query){
+  if(!query)return Q;
+  query=query.toLowerCase();
+  return Q.filter(function(q){
+    return (q.stem||q.question||'').toLowerCase().indexOf(query)>=0||
+           (q.chapter||'').toLowerCase().indexOf(query)>=0||
+           JSON.stringify(q.options||{}).toLowerCase().indexOf(query)>=0;
+  });
+}
+
+// === 新增：错题导出 ===
+function exportWrongs(){
+  loadWrongs();
+  if(!wrongs.length){alert('没有错题');return}
+  var text='马原错题本\n'+'='.repeat(40)+'\n\n';
+  wrongs.forEach(function(id,i){
+    var q=Q.find(function(x){return x.id===id});
+    if(!q)return;
+    var a=answers[id];
+    text+=(i+1)+'. ['+typeLabel(q.type)+'] '+q.stem+'\n';
+    var keys=Object.keys(q.options||{});
+    keys.forEach(function(k){text+='   '+k+'. '+q.options[k]+'\n'});
+    text+='   正确答案: '+q.answer+'\n';
+    if(a)text+='   你的答案: '+a.sel.join('')+'\n';
+    text+='\n';
+  });
+  var blob=new Blob([text],{type:'text/plain;charset=utf-8'});
+  var url=URL.createObjectURL(blob);
+  var link=document.createElement('a');
+  link.href=url;link.download='马原错题本.txt';link.click();
+  URL.revokeObjectURL(url);
+}
+
+// === 新增：分享功能 ===
+function showShareModal(){
+  var s=getStats();
+  var h='<div class="modal-overlay" onclick="if(event.target===this)this.remove()">'+
+    '<div class="modal">'+
+    '<div class="modal-title"><span>📊 我的学习成绩</span><button class="modal-close" onclick="this.closest(\'.modal-overlay\').remove()">✕</button></div>'+
+    '<div class="share-card">'+
+    '<div class="share-title">马原答题助手</div>'+
+    '<div class="share-stats">'+
+    '<div class="share-stat"><div class="share-stat-num">'+s.correct+'</div><div class="share-stat-label">答对</div></div>'+
+    '<div class="share-stat"><div class="share-stat-num">'+s.pct+'%</div><div class="share-stat-label">正确率</div></div>'+
+    '<div class="share-stat"><div class="share-stat-num">'+s.done+'</div><div class="share-stat-label">已答题</div></div>'+
+    '</div></div>'+
+    '<div style="font-size:.82rem;color:var(--sub);text-align:center;margin-bottom:12px">截图保存分享给同学</div>'+
+    '<button class="btn btn-sm btn-ghost" style="width:100%" onclick="navigator.clipboard.writeText(window.location.href).then(function(){alert(\'链接已复制\')})">📋 复制链接</button>'+
+    '</div></div>';
+  document.body.insertAdjacentHTML('beforeend',h);
+}
+
+// === 新增：章节统计页 ===
+function showChapterStats(){
+  var cs=getChapterStats();
+  var h='<div class="modal-overlay" onclick="if(event.target===this)this.remove()">'+
+    '<div class="modal">'+
+    '<div class="modal-title"><span>📊 章节统计</span><button class="modal-close" onclick="this.closest(\'.modal-overlay\').remove()">✕</button></div>';
+  Object.keys(cs).forEach(function(ch){
+    var c=cs[ch];
+    var pct=c.done>0?Math.round(c.correct/c.done*100):0;
+    h+='<div class="chapter-stat">'+
+      '<span class="chapter-stat-name">'+esc(ch)+'</span>'+
+      '<div class="chapter-stat-bar"><div class="chapter-stat-fill" style="width:'+pct+'%"></div></div>'+
+      '<span class="chapter-stat-pct">'+pct+'%</span>'+
+      '</div>';
+  });
+  h+='</div></div>';
+  document.body.insertAdjacentHTML('beforeend',h);
+}
+
+// === 新增：收藏题目页 ===
+function showBookmarks(){
+  if(!bookmarks.length){alert('还没有收藏题目');return}
+  var h='<div class="modal-overlay" onclick="if(event.target===this)this.remove()">'+
+    '<div class="modal">'+
+    '<div class="modal-title"><span>⭐ 收藏题目 ('+bookmarks.length+')</span><button class="modal-close" onclick="this.closest(\'.modal-overlay\').remove()">✕</button></div>';
+  bookmarks.forEach(function(id){
+    var q=Q.find(function(x){return x.id===id});
+    if(!q)return;
+    h+='<div style="padding:10px 0;border-bottom:1px solid var(--border);cursor:pointer" onclick="this.closest(\'.modal-overlay\').remove();screen=\'quiz\';window._qs=Q;idx=Q.indexOf(q);render()">'+
+      '<div style="font-size:.7rem;color:var(--muted);margin-bottom:4px">['+typeLabel(q.type)+'] '+esc(q.chapter||'')+'</div>'+
+      '<div style="font-size:.82rem;line-height:1.5">'+esc((q.stem||q.question||'').substring(0,80))+'...</div>'+
+      '</div>';
+  });
+  h+='</div></div>';
+  document.body.insertAdjacentHTML('beforeend',h);
+}
 // === 存储 ===
 function saveAns(){try{localStorage.setItem('mq_ans',JSON.stringify(answers))}catch(e){}}
 function loadAns(){try{answers=JSON.parse(localStorage.getItem('mq_ans'))||{}}catch(e){answers={}}}
