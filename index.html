@@ -107,8 +107,8 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);line-height:
 .ai-box-title{font-size:.82rem;font-weight:700;color:var(--accent);display:flex;align-items:center;gap:6px}
 .ai-box-arrow{font-size:.7rem;color:var(--muted);transition:transform .25s;flex-shrink:0}
 .ai-box.open .ai-box-arrow{transform:rotate(90deg)}
-.ai-box-bd{display:none;opacity:0;transition:opacity .25s ease}
-.ai-box.open .ai-box-bd{display:block;opacity:1}
+.ai-box-bd{max-height:0;overflow:hidden;transition:max-height .4s ease}
+.ai-box.open .ai-box-bd{max-height:20000px}
 .ai-box-inner{padding:4px 16px 16px}
 .ai-sec{margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid var(--border)}
 .ai-sec:last-child{margin-bottom:0;padding-bottom:0;border-bottom:none}
@@ -454,7 +454,9 @@ document.addEventListener('click', function(e){
   var hd = e.target.closest('.ai-box-hd');
   if(!hd) return;
   var box = hd.closest('.ai-box');
-  if(box) box.classList.toggle('open');
+  if(!box) return;
+  if(box.hasAttribute('data-streaming')) return;
+  box.classList.toggle('open');
 });
 
 // 创建 AI box HTML（默认收起）
@@ -469,35 +471,38 @@ async function askAI(btn, qid){
   if(!q)return;
   var wrap=btn.closest('.ai-wrap');
 
-  // 缓存命中（默认收起）
+  // 缓存命中：渲染后保持收起
   if(window._aiCache[qid]){
     btn.remove();
     wrap.innerHTML=_aiBoxHTML(window._aiCache[qid]);
     return;
   }
+
   btn.disabled=true;
   btn.textContent='\u23f3 解析中...';
 
-  // 流式时展开
+  // 创建 AI box，流式期间保持展开
   wrap.innerHTML=_aiBoxHTML();
   var box=wrap.querySelector('.ai-box');
   box.classList.add('open');
-  box.dataset.streaming='1';
+  box.setAttribute('data-streaming','1');
   var inner=box.querySelector('.ai-box-inner');
   var fullText='';
   var doneReceived=false;
 
   function _finishBox(html){
+    doneReceived=true;
     inner.innerHTML=html;
     window._aiCache[qid]=html;
-    delete box.dataset.streaming;
-    box.classList.remove('open');
-    doneReceived=true;
+    // 移除 streaming 标记，但保持展开（让用户看到结果）
+    box.removeAttribute('data-streaming');
+    // 不再自动收起！让用户手动关闭
   }
 
   function _showError(msg){
-    delete box.dataset.streaming;
-    box.classList.remove('open');
+    doneReceived=true;
+    box.removeAttribute('data-streaming');
+    box.classList.add('open');
     inner.innerHTML='<div style="padding:8px 0;color:var(--red);font-size:.82rem">\u26a0 '+msg+'</div><button class="ai-btn" onclick="askAI(this,'+JSON.stringify(qid)+')" style="margin-top:8px">\ud83e\udde0 重试</button>';
   }
 
@@ -538,7 +543,7 @@ async function askAI(btn, qid){
       }
     }
 
-    // 流自然结束但没收到 done 事件（超时/token 耗尽兜底）
+    // 流自然结束但没收到 done 事件
     if(!doneReceived && fullText.length>10){
       var fallback={solution:fullText,location:'',options_analysis:'',warning:''};
       _finishBox(_renderFinal(fallback));
@@ -547,7 +552,6 @@ async function askAI(btn, qid){
     _showError(err.message);
   }
 }
-
 // 流式预览：简单文本清洗，不做复杂JSON解析
 function _parseAI(raw){
   var t=raw;
