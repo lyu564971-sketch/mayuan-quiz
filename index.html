@@ -102,8 +102,8 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);line-height:
 .ai-box-title{font-size:.82rem;font-weight:700;color:var(--accent);display:flex;align-items:center;gap:6px}
 .ai-box-arrow{font-size:.7rem;color:var(--muted);transition:transform .25s;flex-shrink:0}
 .ai-box.open .ai-box-arrow{transform:rotate(90deg)}
-.ai-box-bd{max-height:0;overflow:hidden;transition:max-height .35s ease}
-.ai-box.open .ai-box-bd{max-height:5000px}
+.ai-box-bd{display:none;opacity:0;transition:opacity .25s ease}
+.ai-box.open .ai-box-bd{display:block;opacity:1}
 .ai-box-inner{padding:4px 16px 16px}
 .ai-sec{margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid var(--border)}
 .ai-sec:last-child{margin-bottom:0;padding-bottom:0;border-bottom:none}
@@ -287,7 +287,7 @@ function pick(k){
 }
 function confirmMulti(){
   const q=window._qs[idx],a=answers[q.id];if(!a||!a.sel.length)return;
-  a.done=true;a.ok=a.sel.sort().join('')===q.answer.split('').sort().join('');if(!a.ok)addWrong(q.id);else removeWrong(q.id);answers[q.id]=a;saveAns();render();
+  a.done=true;a.ok=a.sel.sort().join('')===q.answer.split('').sort().join('');if(!a.ok)addWrong(q.id);else removeWrong(q.id);answers[q.id]=a;saveAns();render();if(a.ok){setTimeout(function(){nextQ()},1000)}
 }
 function prevQ(){if(idx>0){idx--;render()}}
 function nextQ(){if(idx<window._qs.length-1){idx++;render()}else{screen='result';render()}}
@@ -351,13 +351,30 @@ async function askAI(btn, qid){
     return;
   }
   btn.disabled=true;
-  btn.textContent='⏳ 解析中...';
+  btn.textContent='\u23f3 解析中...';
 
   // 流式时展开
   wrap.innerHTML=_aiBoxHTML();
   var box=wrap.querySelector('.ai-box');
   box.classList.add('open');
+  box.dataset.streaming='1';
   var inner=box.querySelector('.ai-box-inner');
+  var fullText='';
+  var doneReceived=false;
+
+  function _finishBox(html){
+    inner.innerHTML=html;
+    window._aiCache[qid]=html;
+    delete box.dataset.streaming;
+    box.classList.remove('open');
+    doneReceived=true;
+  }
+
+  function _showError(msg){
+    delete box.dataset.streaming;
+    box.classList.remove('open');
+    inner.innerHTML='<div style="padding:8px 0;color:var(--red);font-size:.82rem">\u26a0 '+msg+'</div><button class="ai-btn" onclick="askAI(this,'+JSON.stringify(qid)+')" style="margin-top:8px">\ud83e\udde0 重试</button>';
+  }
 
   try{
     var resp=await fetch('/api/explain',{
@@ -369,7 +386,7 @@ async function askAI(btn, qid){
 
     var reader=resp.body.getReader();
     var decoder=new TextDecoder();
-    var buf='',fullText='';
+    var buf='';
 
     while(true){
       var result=await reader.read();
@@ -388,18 +405,23 @@ async function askAI(btn, qid){
             fullText+=d.text;
             inner.innerHTML=_parseAI(fullText);
           }else if(d.type==='done'){
-            inner.innerHTML=_renderFinal(d);
-            window._aiCache[qid]=inner.innerHTML;
-            box.classList.remove('open');
+            _finishBox(_renderFinal(d));
           }else if(d.type==='error'){
             throw new Error(d.text);
           }
         }catch(e){if(e.message)throw e}
       }
     }
+
+    // 流自然结束但没收到 done 事件（超时/token 耗尽兜底）
+    if(!doneReceived && fullText.length>10){
+      var fallback={solution:fullText,location:'',options_analysis:'',warning:''};
+      _finishBox(_renderFinal(fallback));
+    }
   }catch(err){
-    wrap.innerHTML='<button class="ai-btn" onclick="askAI(this,'+JSON.stringify(qid)+')">🧠 重试</button><div style="margin-top:8px;padding:12px;color:var(--red);font-size:.82rem;border-radius:10px;background:var(--red-soft)">⚠ '+esc(err.message)+'</div>';
+    _showError(err.message);
   }
+}
 }
 
 // 流式预览：简单文本清洗，不做复杂JSON解析
