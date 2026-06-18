@@ -196,7 +196,7 @@ def explain():
         try:
             messages = prompt_manager.build_messages(data)
             # 流式调用，逐步返回文本片段
-            for chunk in api_client.stream_call(messages, temperature=0.3, max_tokens=1500, request_timeout=120):
+            for chunk in api_client.stream_call(messages, temperature=0.3, max_tokens=2000, request_timeout=120):
                 full_text += chunk
                 # SSE 格式：data: {json}\n\n
                 yield f"data: {json.dumps({'type': 'chunk', 'text': chunk}, ensure_ascii=False)}\n\n"

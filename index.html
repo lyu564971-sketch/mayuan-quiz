@@ -20,6 +20,9 @@
 html{font-size:15px;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
 body{font-family:var(--font);background:var(--bg);color:var(--text);line-height:1.6;min-height:100dvh}
 ::selection{background:var(--accent);color:#fff}
+button,.btn,.mode,.ch,.q-dot,.opt,.confirm,.nav-b,.bookmark-btn,.ai-box-hd{touch-action:manipulation;-webkit-tap-highlight-color:transparent;user-select:none}
+button:focus,.btn:focus,.mode:focus,.ch:focus,.q-dot:focus,.opt:focus,.confirm:focus,.nav-b:focus,.bookmark-btn:focus,.ai-box-hd:focus{outline:none}
+button:focus-visible,.btn:focus-visible,.mode:focus-visible,.ch:focus-visible,.q-dot:focus-visible,.opt:focus-visible,.confirm:focus-visible,.nav-b:focus-visible,.bookmark-btn:focus-visible,.ai-box-hd:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 
 /* === 布局 === */
 .app{max-width:640px;margin:0 auto;padding:0 20px}
@@ -394,17 +397,37 @@ function startQuiz(){
   _clearInteractionState();
   window._qs=qs; idx=0; answers={}; screen='quiz'; render();
 }
+function goToIndex(i){
+  _clearInteractionState();
+  if(!window._qs||i<0||i>=window._qs.length)return;
+  idx=i;
+  render();
+}
+function goToQuestion(id){
+  _clearInteractionState();
+  var i=Q.findIndex(function(x){return x.id===id});
+  if(i<0)return;
+  screen='quiz';
+  window._qs=Q;
+  idx=i;
+  render();
+}
 
 // === 答题 ===
 function renderQuiz(){
   const qs=window._qs, q=qs[idx], n=qs.length;
   const a=answers[q.id], done=a&&a.done;
-  startTimer();
+  if(done){
+    stopTimer();
+    _timerElapsed=a.time||0;
+  }else{
+    startTimer(q.id);
+  }
   let h=`
   <div class="quiz">
     <div class="topbar"><button class="back" onclick="stopTimer();screen='home';render()">← 返回</button>
       <div style="display:flex;align-items:center;gap:10px">
-        <div class="timer"><span class="timer-icon">⏱</span><span id="timer-display">00:00</span></div>
+        <div class="timer"><span class="timer-icon">⏱</span><span id="timer-display">${formatTime(_timerElapsed)}</span></div>
         <span class="progress-text">${idx+1} / ${n}</span>
       </div>
     </div>
@@ -415,7 +438,7 @@ function renderQuiz(){
     let cls='q-dot';
     if(i===idx) cls+=' cur';
     else if(ans&&ans.done) cls+=ans.ok?' done':' wrg';
-    h+=`<div class="${cls}" onclick="idx=${i};render()">${i+1}</div>`;
+    h+=`<div class="${cls}" onclick="goToIndex(${i})">${i+1}</div>`;
   });
   h+=`</div><div class="q-card">
     <div class="q-meta"><span class="tag tag-type">${typeLabel(q.type)}</span><span class="tag">${esc(q.chapter||'综合')}</span>
@@ -469,7 +492,7 @@ function pick(k){
     if(!a.ok)addWrong(q.id);else removeWrong(q.id);
   }
   answers[q.id]=a; saveAns(); render();
-  if(a.done&&a.ok&&q.type!=='multiple'&&_ai.status!=='streaming'){setTimeout(function(){nextQ()},800)}
+  if(a.done&&a.ok&&q.type!=='multiple'&&_ai.status!=='streaming'){autoNextFrom(q.id,idx)}
 }
 function confirmMulti(){
   const q=window._qs[idx],a=answers[q.id];if(!a||!a.sel.length)return;
@@ -478,10 +501,15 @@ function confirmMulti(){
   a.time=_timerElapsed;
   stopTimer();
   if(!a.ok)addWrong(q.id);else removeWrong(q.id);answers[q.id]=a;saveAns();render();
-  if(a.ok&&_ai.status!=='streaming'){setTimeout(function(){nextQ()},800)}
+  if(a.ok&&_ai.status!=='streaming'){autoNextFrom(q.id,idx)}
 }
-function prevQ(){if(idx>0){idx--;render()}}
-function nextQ(){_clearInteractionState();if(idx<window._qs.length-1){idx++;render()}else{screen='result';render()}}
+function prevQ(){if(idx>0){goToIndex(idx-1)}}
+function nextQ(){_clearInteractionState();if(idx<window._qs.length-1){goToIndex(idx+1)}else{screen='result';render()}}
+function autoNextFrom(qid,fromIdx){
+  setTimeout(function(){
+    if(screen==='quiz'&&window._qs&&window._qs[idx]&&window._qs[idx].id===qid&&idx===fromIdx&&_ai.status!=='streaming') nextQ();
+  },800);
+}
 
 // === 结果 ===
 function renderResult(){
@@ -570,17 +598,25 @@ async function askAI(qid,force){
       body:JSON.stringify({id:q.id,type:q.type,chapter:q.chapter,stem:q.stem||q.question,options:q.options,answer:q.answer}),
       signal:_myCtrl.signal
     });
-    if(!resp.ok) throw new Error('HTTP '+resp.status);
+    if(!resp.ok){
+      var errText=await resp.text();
+      try{
+        var errObj=JSON.parse(errText);
+        errText=errObj.error||errObj.message||errText;
+      }catch(e){}
+      throw new Error(errText||('HTTP '+resp.status));
+    }
     var reader=resp.body.getReader(),decoder=new TextDecoder(),buf='';
     var parsedResult=null;
     var sawDone=false;
     var handleSSELine=function(line){
-      if(!line.startsWith('data: ')) return;
-      var payload=line.slice(6).trim();
+      if(!line) return;
+      if(line.indexOf('data:')!==0) return;
+      var payload=line.replace(/^data:\s*/,'').trim();
       if(!payload) return;
       try{
         var d=JSON.parse(payload);
-        if(d.type==='chunk'){_ai.fullText+=d.text||'';}
+        if(d.type==='chunk'){_ai.fullText+=d.text||'';_streamUpdate();}
         else if(d.type==='done'){parsedResult=d;sawDone=true;}
         else if(d.type==='error'){throw new Error(d.text||'解析失败');}
       }catch(e){
@@ -716,7 +752,7 @@ function renderSearchResults(){
   if(!results.length){el.innerHTML='<div style="padding:12px;color:var(--muted);font-size:.82rem;text-align:center">未找到相关题目</div>';return}
   var h='';
   results.forEach(function(q,i){
-    h+='<div style="padding:10px 12px;border-bottom:1px solid var(--border);cursor:pointer" onclick="screen=\'quiz\';window._qs=Q;idx=Q.indexOf(Q.find(function(x){return x.id==='+q.id+'}));render()">'+
+    h+='<div style="padding:10px 12px;border-bottom:1px solid var(--border);cursor:pointer" onclick="goToQuestion('+q.id+')">'+
       '<div style="font-size:.7rem;color:var(--muted);margin-bottom:4px">['+typeLabel(q.type)+'] '+esc(q.chapter||'')+'</div>'+
       '<div style="font-size:.82rem;line-height:1.5">'+esc((q.stem||q.question).substring(0,100))+'</div>'+
       '</div>';
@@ -739,9 +775,20 @@ function toggleBookmark(id){
 function isBookmarked(id){return bookmarks.indexOf(id)>=0}
 
 // === 新增：答题计时器 ===
-var _timerStart=0,_timerInterval=null,_timerElapsed=0;
-function startTimer(){_timerStart=Date.now();_timerElapsed=0;if(_timerInterval)clearInterval(_timerInterval);_timerInterval=setInterval(function(){_timerElapsed=Math.floor((Date.now()-_timerStart)/1000);var el=document.getElementById('timer-display');if(el)el.textContent=formatTime(_timerElapsed)},1000)}
-function stopTimer(){if(_timerInterval){clearInterval(_timerInterval);_timerInterval=null}}
+var _timerStart=0,_timerInterval=null,_timerElapsed=0,_timerQid=null;
+function startTimer(qid){
+  if(_timerQid===qid&&_timerInterval)return;
+  if(_timerInterval)clearInterval(_timerInterval);
+  _timerQid=qid;
+  _timerStart=Date.now();
+  _timerElapsed=0;
+  _timerInterval=setInterval(function(){
+    _timerElapsed=Math.floor((Date.now()-_timerStart)/1000);
+    var el=document.getElementById('timer-display');
+    if(el)el.textContent=formatTime(_timerElapsed);
+  },1000);
+}
+function stopTimer(){if(_timerInterval){clearInterval(_timerInterval);_timerInterval=null} _timerQid=null}
 function formatTime(s){var m=Math.floor(s/60);var ss=s%60;return (m<10?'0':'')+m+':'+(ss<10?'0':'')+ss}
 function getAvgTime(){
   var qs=window._qs||[];var total=0;var count=0;
@@ -846,10 +893,12 @@ function showBookmarks(){
   if(!bookmarks.length){alert('还没有收藏题目');return}
   var h='<div class="modal-overlay" onclick="if(event.target===this)this.remove()">'+
     '<div class="modal">'+
+    '<div class="modal-title"><span>⭐ 收藏题目</span><button class="modal-close" onclick="this.closest(\'.modal-overlay\').remove()">✕</button></div>'+
+    '<div style="font-size:.78rem;color:var(--sub);margin-bottom:10px">点击题目即可跳转练习</div>';
   bookmarks.forEach(function(id){
     var q=Q.find(function(x){return x.id===id});
     if(!q)return;
-    h+='<div style="padding:10px 0;border-bottom:1px solid var(--border);cursor:pointer" onclick="this.closest(\'.modal-overlay\').remove();screen=\'quiz\';window._qs=Q;idx=Q.indexOf(q);render()">'+
+    h+='<div style="padding:10px 0;border-bottom:1px solid var(--border);cursor:pointer" onclick="this.closest(\'.modal-overlay\').remove();goToQuestion('+q.id+')">'+
       '<div style="font-size:.7rem;color:var(--muted);margin-bottom:4px">['+typeLabel(q.type)+'] '+esc(q.chapter||'')+'</div>'+
       '<div style="font-size:.82rem;line-height:1.5">'+esc((q.stem||q.question||'').substring(0,80))+'...</div>'+
       '</div>';
