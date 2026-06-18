@@ -252,7 +252,7 @@ class PromptManager:
         if knowledge:
             parts.append(f"\n参考知识点：\n{knowledge}")
 
-        parts.append("\n请按照System Prompt要求生成四段式解析（JSON格式）。")
+        parts.append("\n请按照System Prompt要求生成四段式解析，必须使用【】分段，不要输出 JSON。")
 
         return "\n".join(p for p in parts if p)
 

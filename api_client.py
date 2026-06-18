@@ -175,8 +175,8 @@ class APIClient:
         self,
         messages: List[Dict[str, str]],
         temperature: float = 0.3,
-        max_tokens: int = 800,
-        request_timeout: int = 30,
+        max_tokens: int = 2000,
+        request_timeout: int = 120,
     ):
         """流式调用 LLM API，逐块返回文本。
 

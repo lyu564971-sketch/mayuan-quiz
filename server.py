@@ -158,6 +158,24 @@ def _ensure_str_values(d: dict) -> dict:
     return {k: _flatten_value(v) for k, v in d.items()}
 
 
+def _ensure_complete_result(result: dict, full_text: str) -> dict:
+    """保证前端至少能渲染出一个可读解析块。"""
+    normalized = {
+        "location": result.get("location", ""),
+        "solution": result.get("solution", ""),
+        "options_analysis": result.get("options_analysis", ""),
+        "warning": result.get("warning", ""),
+    }
+    if any(normalized.values()):
+        return normalized
+    return {
+        "location": "",
+        "solution": _clean_text(full_text.strip()) or "AI 解析生成失败，请重试。",
+        "options_analysis": "",
+        "warning": "",
+    }
+
+
 @app.route("/api/explain", methods=["POST"])
 def explain():
     """流式 SSE 端点 - AI 解析。前端通过 EventSource 或 fetch 读取流式数据。"""
@@ -186,6 +204,7 @@ def explain():
             # 流结束，解析完整响应并返回结构化结果
             result = _parse_llm_response(full_text)
             result = _ensure_str_values(result)
+            result = _ensure_complete_result(result, full_text)
             final = {
                 "type": "done",
                 "id": data["id"],
