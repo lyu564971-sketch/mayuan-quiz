@@ -293,34 +293,14 @@ function _stopAIStream(preservePartial){
   }
   if(ctrl){try{ctrl.abort()}catch(e){}}
 }
-var _quizProgressKey='mq_quiz_progress';
-function _saveQuizProgress(){
+function _clearInteractionState(){
   try{
-    if(window._qs&&window._qs.length){
-      localStorage.setItem(_quizProgressKey,JSON.stringify({
-        mode:mode,
-        chapter:chapter,
-        idx:idx,
-        qids:window._qs.map(function(q){return q.id}),
-        screen:'quiz'
-      }));
-    }
+    var selection=window.getSelection&&window.getSelection();
+    if(selection&&selection.removeAllRanges) selection.removeAllRanges();
   }catch(e){}
-}
-function _loadQuizProgress(){
-  try{return JSON.parse(localStorage.getItem(_quizProgressKey)||'null')}catch(e){return null}
-}
-function _restoreQuizProgress(){
-  var saved=_loadQuizProgress();
-  if(!saved||saved.screen!=='quiz'||!saved.qids||!saved.qids.length)return false;
-  var qs=saved.qids.map(function(id){return Q.find(function(q){return q.id===id})}).filter(Boolean);
-  if(!qs.length)return false;
-  mode=saved.mode||mode;
-  chapter=saved.chapter||'';
-  window._qs=qs;
-  idx=Math.max(0,Math.min(saved.idx||0,qs.length-1));
-  screen='quiz';
-  return true;
+  try{
+    if(document.activeElement&&document.activeElement.blur) document.activeElement.blur();
+  }catch(e){}
 }
 
 // 工具
@@ -330,6 +310,7 @@ const chapters = [...new Set(Q.map(q=>q.chapter||'综合'))];
 
 // 渲染入口
 function render(){
+  setTheme(getTheme());
   var currentQ=(screen==='quiz'&&window._qs&&window._qs[idx])?window._qs[idx]:null;
   if(_ai.status==='streaming'&&(!currentQ||currentQ.id!==_ai.qid)) _stopAIStream(true);
   if(screen==='home') renderHome();
@@ -410,7 +391,8 @@ function startQuiz(){
     qs=Q.filter(q=>wrongs.includes(q.id));
   }
   if(mode==='rand') qs.sort(()=>Math.random()-.5);
-  window._qs=qs; idx=0; answers={}; screen='quiz'; render();_saveQuizProgress();
+  _clearInteractionState();
+  window._qs=qs; idx=0; answers={}; screen='quiz'; render();
 }
 
 // === 答题 ===
@@ -473,11 +455,11 @@ function renderQuiz(){
   h+=`</div><div class="nav-row"><button class="nav-b" onclick="prevQ()" ${idx===0?'disabled':''}>上一题</button><button class="nav-b" onclick="nextQ()">${idx===n-1?'查看结果':'下一题'}</button></div></div>`;
   document.getElementById('app').innerHTML=h;
   if(_ai.status==='streaming'&&_ai.qid===q.id) _streamUpdate();
-  _saveQuizProgress();
 }
 function pick(k){
   const q=window._qs[idx], a=answers[q.id]||{sel:[],done:false,ok:false};
   if(a.done) return;
+  _clearInteractionState();
   if(q.type==='multiple'){
     const i=a.sel.indexOf(k);if(i>=0)a.sel.splice(i,1);else a.sel.push(k);a.sel.sort();
   }else{
@@ -491,6 +473,7 @@ function pick(k){
 }
 function confirmMulti(){
   const q=window._qs[idx],a=answers[q.id];if(!a||!a.sel.length)return;
+  _clearInteractionState();
   a.done=true;a.ok=a.sel.sort().join('')===q.answer.split('').sort().join('');
   a.time=_timerElapsed;
   stopTimer();
@@ -498,7 +481,7 @@ function confirmMulti(){
   if(a.ok&&_ai.status!=='streaming'){setTimeout(function(){nextQ()},800)}
 }
 function prevQ(){if(idx>0){idx--;render()}}
-function nextQ(){if(idx<window._qs.length-1){idx++;render()}else{screen='result';render()}}
+function nextQ(){_clearInteractionState();if(idx<window._qs.length-1){idx++;render()}else{screen='result';render()}}
 
 // === 结果 ===
 function renderResult(){
@@ -856,7 +839,6 @@ function showBookmarks(){
   if(!bookmarks.length){alert('还没有收藏题目');return}
   var h='<div class="modal-overlay" onclick="if(event.target===this)this.remove()">'+
     '<div class="modal">'+
-loadAns();loadWrongs();_restoreQuizProgress();render();
   bookmarks.forEach(function(id){
     var q=Q.find(function(x){return x.id===id});
     if(!q)return;
@@ -877,10 +859,10 @@ function addWrong(id){if(!wrongs.includes(id)){wrongs.push(id);saveWrongs()}}
 function removeWrong(id){wrongs=wrongs.filter(function(w){return w!==id});saveWrongs()}
 
 // 启动
-window.addEventListener('beforeunload',function(){_saveQuizProgress()});
-loadAns();loadWrongs();if(!_restoreQuizProgress())render();else render();
+loadAns();
+loadWrongs();
+setTheme(getTheme());
+render();
 </script>
 </body>
 </html>
-
-
