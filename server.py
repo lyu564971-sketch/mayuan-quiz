@@ -50,43 +50,51 @@ def _parse_llm_response(text: str) -> dict:
     import json as _json
     import re as _re
 
-    # 中文key到英文key的映射
     KEY_MAP = {
         "考点定位": "location", "解题思路": "solution",
         "选项分析": "options_analysis", "易错提醒": "warning",
     }
 
+    def _clean_key(key: str) -> str:
+        return _re.sub(r"^[\\s【】\"\'“”]+|[\\s【】\"\'“”]+$", "", str(key)).strip()
+
     def _normalize(d: dict) -> dict:
         mapped = {}
         for k, v in d.items():
-            ek = KEY_MAP.get(k, k)
-            mapped[ek] = v
+            cleaned = _clean_key(k)
+            ek = KEY_MAP.get(cleaned)
+            if not ek:
+                for zh_key, eng_key in KEY_MAP.items():
+                    if zh_key in cleaned:
+                        ek = eng_key
+                        break
+            mapped[ek or cleaned] = v
         return mapped
 
-    # 方式1：纯 JSON
     try:
         result = _json.loads(text)
         if isinstance(result, dict):
             result = _normalize(result)
-            return {k: v for k, v in result.items()}
+            if any(result.get(v) for v in KEY_MAP.values()):
+                return {k: v for k, v in result.items()}
     except (_json.JSONDecodeError, TypeError):
         pass
 
-    # 方式2：Markdown 代码块包裹的 JSON
     code_match = _re.search(r"```(?:json)?\s*([\s\S]*?)```", text)
     if code_match:
         try:
             result = _json.loads(code_match.group(1).strip())
             if isinstance(result, dict):
-                return _normalize(result)
+                result = _normalize(result)
+                if any(result.get(v) for v in KEY_MAP.values()):
+                    return {k: v for k, v in result.items()}
         except (_json.JSONDecodeError, TypeError):
             pass
 
-    # 方式3：正则匹配【段落标题】格式（兜底）
     sections = {}
     for key, title in [("location", "考点定位"), ("solution", "解题思路"),
                         ("options_analysis", "选项分析"), ("warning", "易错提醒")]:
-        pattern = rf"【{title}】\s*([\s\S]*?)(?=【|$)"
+        pattern = rf"【\s*[\"\'“”]?{title}[\"\'“”]?\s*】\s*([\s\S]*?)(?=【|$)"
         m = _re.search(pattern, text)
         sections[key] = m.group(1).strip() if m else ""
 
@@ -94,7 +102,6 @@ def _parse_llm_response(text: str) -> dict:
     if non_empty >= 2:
         return sections
 
-    # 兜底：把原始文本放到 solution 里
     return {"location": "", "solution": text, "options_analysis": "", "warning": ""}
 
 
@@ -171,7 +178,7 @@ def explain():
         try:
             messages = prompt_manager.build_messages(data)
             # 流式调用，逐步返回文本片段
-            for chunk in api_client.stream_call(messages, temperature=0.3, max_tokens=800, request_timeout=30):
+            for chunk in api_client.stream_call(messages, temperature=0.3, max_tokens=1500, request_timeout=120):
                 full_text += chunk
                 # SSE 格式：data: {json}\n\n
                 yield f"data: {json.dumps({'type': 'chunk', 'text': chunk}, ensure_ascii=False)}\n\n"

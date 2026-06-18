@@ -1,9 +1,9 @@
-services:
+﻿services:
   - type: web
     name: mayuan-quiz
     runtime: python
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn server:app
+    startCommand: gunicorn --timeout 120 --workers 2 server:app
     envVars:
       - key: ZHIPU_API_KEY
         sync: false
